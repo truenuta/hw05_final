@@ -5,8 +5,7 @@
 {% endblock %}
 {% block main %} 
 {% include 'posts/includes/switcher.html' %} 
-{% load cache %}
-  {% cache 20 index_page %}
+
   {% for post in page_obj %}
     {% include 'includes/post_card.html' %}
   {% if post.group %} 
@@ -19,7 +18,7 @@
   {% endif %}
 {% endfor %}
   {% include 'posts/includes/paginator.html' %}
-  {% endcache %}
+  
 {% endblock %}
     
 

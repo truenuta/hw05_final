@@ -24,14 +24,14 @@ class PostURLTests(TestCase):
         self.urls = [
             '/',
             f'/group/{self.group.slug}/',
-            f'/profile/{self.user}/',
+            f'/profile/{self.post.author}/',
             f'/posts/{self.post.id}/',
         ]
 
         self.templates_url_names = {
             '/': 'posts/index.html',
             f'/group/{self.group.slug}/': 'posts/group_list.html',
-            f'/profile/{self.user.username}/': 'posts/profile.html',
+            f'/profile/{self.post.author}/': 'posts/profile.html',
             f'/posts/{self.post.id}/': 'posts/post_detail.html',
             f'/posts/{self.post.id}/edit/': 'posts/create_post.html',
             '/create/': 'posts/create_post.html',
@@ -47,14 +47,14 @@ class PostURLTests(TestCase):
         self.create_page = '/create/'
         self.post_edit = f'/posts/{self.post.id}/edit/'
         self.post_detail_url = f'/posts/{self.post.pk}/'
-        self.profile = f"/profile/{self.user}/"
+        self.profile = f"/profile/{self.author}/"
 
     def test_url_http_status(self):
         """Проверяем доступность страниц
         для неавторизированному пользователю"""
         for address in self.urls:
             with self.subTest('NOTauthorized_client', address=address):
-                response = self.authorized_client.get(address)
+                response = self.guest_client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_posts_non_existing_page(self):

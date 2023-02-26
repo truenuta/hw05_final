@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
 
 from .forms import PostForm, CommentForm
-from .models import Post, Group, User, Comment, Follow
+from .models import Post, Group, User, Follow
 
 
 NUM_OF_SHOWED_POSTS = 10
@@ -41,12 +41,9 @@ def profile(request, username):
     author = get_object_or_404(User, username=username)
     posts = author.posts.all()
     page_obj = paginate(posts, request)
-    following = False
-    if request.user.is_authenticated:
-        if Follow.objects.filter(user=request.user, author=author).exists():
-            following = True
-        else:
-            following = False
+    following = (request.user.is_authenticated
+                 and Follow.objects.filter(
+                     user=request.user, author=author).exists())
     context = {
         'page_obj': page_obj,
         'author': author,
@@ -58,7 +55,7 @@ def profile(request, username):
 def post_detail(request, post_id):
     form = CommentForm(request.POST or None)
     post = get_object_or_404(Post, id=post_id)
-    comments = Comment.objects.filter(post=post)
+    comments = post.comments.filter(post=post)
     context = {
         'post': post,
         "form": form,
@@ -127,12 +124,16 @@ def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
     if author != request.user:
         Follow.objects.get_or_create(user=request.user, author=author)
-    return redirect("posts:profile", username=username)
+        return redirect('posts:profile', username=username)
+    return redirect('posts:profile', username=username)
 
 
 @login_required
 def profile_unfollow(request, username):
     author = get_object_or_404(User, username=username)
-    if author != request.user:
+    if_exists = Follow.objects.filter(
+        user=request.user,
+        author=author).exists()
+    if author != request.user and if_exists:
         Follow.objects.get(user=request.user, author=author).delete()
-    return redirect("posts:profile", username=username)
+    return redirect('posts:profile', username=username)

@@ -20,7 +20,7 @@ class PostPagesTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create(username='Anya')
+        cls.user = User.objects.create(username='NewOne')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
@@ -77,7 +77,7 @@ class PostPagesTests(TestCase):
 
     def test_profile_show_correct_context(self):
         """Шаблон profile сформирован с правильным контекстом."""
-        response = self.guest_client.get(
+        response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': self.post.author})
         )
         expected = list(Post.objects.filter(author_id=self.user.id)[:10])
@@ -85,7 +85,7 @@ class PostPagesTests(TestCase):
 
     def test_post_detail_show_correct_contecst(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
-        response = self.guest_client.get(
+        response = self.authorized_client.get(
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})
         )
         fields = {response.context.get('post').text: self.post.text,
@@ -158,22 +158,17 @@ class PostPagesTests(TestCase):
     def test_check_cache(self):
         """Тестирование работы кеша."""
         response1 = self.authorized_client.get(reverse('posts:index'))
-        cnt1 = Post.objects.count()
         res1 = response1.content
-        form_data = {
-            'text': 'Тестируем кеш'
-        }
-        self.authorized_client.post(
-            reverse('posts:post_create'),
-            data=form_data,
-            follow=True
+        Post.objects.create(
+            author=PostPagesTests.user,
+            text='Тестовый пост для кеша',
+            group=PostPagesTests.group,
         )
-        response2 = self.authorized_client.get(reverse('posts:index'))
-        res2 = response2.content
+        res2 = self.authorized_client.get(reverse('posts:index')).content
         self.assertEqual(res1, res2)
         cache.clear()
-        cnt2 = Post.objects.count()
-        self.assertNotEqual(cnt1, cnt2)
+        res3 = self.authorized_client.get(reverse('posts:index')).content
+        self.assertNotEqual(res2, res3)
 
 
 class PaginatorViewsTest(TestCase):
@@ -184,6 +179,7 @@ class PaginatorViewsTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.user = User.objects.create(username='Petya')
         cls.author = User.objects.create(username='Anya')
         cls.group = Group.objects.create(
             title='Тест группа',
@@ -197,6 +193,8 @@ class PaginatorViewsTest(TestCase):
         ])
 
     def setUp(self):
+        self.authorized_client = Client()
+        self.authorized_client.force_login(PaginatorViewsTest.user)
         self.urls_expected_post_number = [
             reverse('posts:index'),
             reverse('posts:group_list', args=[self.group.slug]),
@@ -206,7 +204,7 @@ class PaginatorViewsTest(TestCase):
         """Тестируем пагинатор 1-ю страницу"""
         for url in self.urls_expected_post_number:
             with self.subTest(url=url):
-                response = self.client.get(url)
+                response = self.authorized_client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
                 page_obj = response.context.get('page_obj')
                 self.assertIsNotNone(page_obj)
@@ -219,7 +217,7 @@ class PaginatorViewsTest(TestCase):
         """Тестируем пагинатор 2-ю страницу"""
         for url in self.urls_expected_post_number:
             with self.subTest(url=url):
-                response2 = self.client.get(url + '?page=2')
+                response2 = self.authorized_client.get(url + '?page=2')
                 self.assertEqual(response2.status_code, HTTPStatus.OK)
                 page_obj2 = response2.context.get('page_obj')
                 self.assertIsNotNone(page_obj2)
@@ -249,7 +247,7 @@ class ImageTests(TestCase):
             b"\x0A\x00\x3B"
         )
         cls.uploaded = SimpleUploadedFile(
-            name="small.gif", content=cls.small_gif, content_type="image/gif"
+            name='small.gif', content=cls.small_gif, content_type='image/gif'
         )
         cls.post = Post.objects.create(
             author=cls.user,
@@ -264,11 +262,12 @@ class ImageTests(TestCase):
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
-        self.guest_client = Client()
+        self.authorized_client = Client()
+        self.authorized_client.force_login(ImageTests.user)
 
     def test_image_in_group_list_page(self):
         """Картинка передается на страницу group_list."""
-        response = self.guest_client.get(
+        response = self.authorized_client.get(
             reverse("posts:group_list", kwargs={"slug": self.group.slug}),
         )
         obj = response.context["page_obj"][0]
@@ -276,7 +275,7 @@ class ImageTests(TestCase):
 
     def test_image_in_post_detail_page(self):
         """Картинка передается на страницу post_detail."""
-        response = self.guest_client.get(
+        response = self.authorized_client.get(
             reverse("posts:post_detail", kwargs={"post_id": self.post.id})
         )
         obj = response.context["post"]
@@ -284,7 +283,7 @@ class ImageTests(TestCase):
 
     def test_image_on_main_page(self):
         """Картинка передается на главную страницу"""
-        response = self.guest_client.get(
+        response = self.authorized_client.get(
             reverse("posts:index")
         )
         obj = response.context["page_obj"][0]
@@ -292,7 +291,7 @@ class ImageTests(TestCase):
 
     def test_image_on_profile_page(self):
         """Картинка передается на профайл"""
-        response = self.guest_client.get(
+        response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': self.post.author})
         )
         obj = response.context["page_obj"][0]
@@ -334,7 +333,7 @@ class CommentsTests(TestCase):
         self.author = User.objects.create_user(username='author')
 
     def test_only_authorized_client_enable_to_add_comment(self):
-        """Авторизированный пользователь можем оставлить комментарий
+        """Авторизированный пользователь может оставить комментарий
         и будет перенапрвлен на страницу поста"""
         response = self.authorized_client.get(
             reverse('posts:add_comment', kwargs={'post_id': self.post.id})
@@ -345,7 +344,21 @@ class CommentsTests(TestCase):
                 'posts:post_detail',
                 kwargs={'post_id': self.post.id}))
 
+    def test_not_authorized_client_cannot_add_comment(self):
+        """Не авторизированный пользователь не  может
+        оставить комментарий пока не авторизируется"""
+        response = self.other_client.get(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            follow=True)
+        self.assertRedirects(
+            response, reverse('users:login')
+            + '?next=' + reverse(
+                'posts:add_comment',
+                kwargs={'post_id': self.post.id}))
+
     def test_authorized_client_add_comment_correctly(self):
+        """Авторизированный пользователь  оставляет комментарий
+        корректно"""
         comments_count = Comment.objects.count()
         form_data = {"text": "Новый тестовый коммент"}
         response = self.authorized_client.post(
@@ -363,8 +376,11 @@ class CommentsTests(TestCase):
 class FollowTests(TestCase):
     def setUp(self):
         self.user = User.objects.create(username='Anya')
+        self.user_not_following = User.objects.create(username='Petya')
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        self.not_following = Client()
+        self.not_following.force_login(self.user_not_following)
         self.author = User.objects.create_user(username='author')
         self.follow = reverse(
             'posts:profile_follow',
@@ -373,36 +389,35 @@ class FollowTests(TestCase):
             'posts:profile_unfollow',
             kwargs={'username': self.author})
         self.follow_index = reverse('posts:follow_index')
-
-    def test_authorized_client_enable_to_follow_and_unfollow(self):
-        """Авторизированный пользователь может подписываться
-        и отписываться"""
-        followers_before = Follow.objects.count()
-        self.authorized_client.get(self.follow)
-        self.assertEqual(Follow.objects.count(), followers_before + 1)
-        self.authorized_client.get(self.unfollow)
-        self.assertEqual(Follow.objects.count(), followers_before)
-
-    def test_new_post_appears_for_followers(self):
-        """Новая запись автора
-        появляется у его подписчиков"""
+        self.followers_before = Follow.objects.count()
         Follow.objects.create(
             user=self.user,
             author=self.author
         )
-        post = Post.objects.create(
+        self.post = Post.objects.create(
             author=self.author,
             text='Тестовый пост для теста подписок'
         )
+
+    def test_authorized_client_enable_to_follow(self):
+        """Авторизированный пользователь может подписываться."""
+        self.authorized_client.get(self.follow)
+        self.assertEqual(Follow.objects.count(), self.followers_before + 1)
+
+    def test_authorized_client_enable_to_unfollow(self):
+        """Авторизированный пользователь может отписываться."""
+        self.authorized_client.get(self.follow)
+        self.authorized_client.get(self.unfollow)
+        self.assertEqual(Follow.objects.count(), self.followers_before)
+
+    def test_new_post_appears_for_followers(self):
+        """Новая запись автора
+        появляется у его подписчиков"""
         response = self.authorized_client.get(self.follow_index)
-        self.assertEqual(response.context['page_obj'][0], post)
+        self.assertEqual(response.context['page_obj'][0], self.post)
 
     def test_new_post_doesnt_appears_for_followers(self):
         """Новая запись автора не
         появляется у его неподписчиков"""
-        Post.objects.create(
-            author=self.author,
-            text='Тестовый пост для теста подписок'
-        )
-        response = self.authorized_client.get(self.follow_index)
+        response = self.not_following.get(self.follow_index)
         self.assertEqual(len(response.context['page_obj']), 0)
