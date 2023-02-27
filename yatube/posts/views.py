@@ -55,7 +55,7 @@ def profile(request, username):
 def post_detail(request, post_id):
     form = CommentForm(request.POST or None)
     post = get_object_or_404(Post, id=post_id)
-    comments = post.comments.filter(post=post)
+    comments = post.comments.all()
     context = {
         'post': post,
         "form": form,
@@ -131,9 +131,9 @@ def profile_follow(request, username):
 @login_required
 def profile_unfollow(request, username):
     author = get_object_or_404(User, username=username)
-    if_exists = Follow.objects.filter(
+    followers = Follow.objects.filter(
         user=request.user,
-        author=author).exists()
-    if author != request.user and if_exists:
-        Follow.objects.get(user=request.user, author=author).delete()
+        author=author)
+    if author != request.user and followers.exists():
+        followers.delete()
     return redirect('posts:profile', username=username)

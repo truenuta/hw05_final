@@ -26,6 +26,11 @@ class PostPagesTests(TestCase):
             slug='test-slug',
             description='Тестовое описание',
         )
+        cls.group_cash = Group.objects.create(
+            title='Тестовая группа для кеша',
+            slug='test-cash-slug',
+            description='Тестовое описание',
+        )
         cls.post = Post.objects.create(
             author=cls.user,
             text='Тестовый пост',
@@ -53,6 +58,13 @@ class PostPagesTests(TestCase):
         self.authorized_client = Client()
         self.authorized_client.force_login(PostPagesTests.user)
         self.author = User.objects.create_user(username='author')
+        self.response1 = self.authorized_client.get(reverse('posts:index'))
+        self.res1 = self.response1.content
+        Post.objects.create(
+            author=PostPagesTests.user,
+            text='Тестовый пост для кеша',
+            group=PostPagesTests.group_cash,
+        )
 
     def test_pages_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
@@ -157,15 +169,8 @@ class PostPagesTests(TestCase):
 
     def test_check_cache(self):
         """Тестирование работы кеша."""
-        response1 = self.authorized_client.get(reverse('posts:index'))
-        res1 = response1.content
-        Post.objects.create(
-            author=PostPagesTests.user,
-            text='Тестовый пост для кеша',
-            group=PostPagesTests.group,
-        )
         res2 = self.authorized_client.get(reverse('posts:index')).content
-        self.assertEqual(res1, res2)
+        self.assertEqual(self.res1, res2)
         cache.clear()
         res3 = self.authorized_client.get(reverse('posts:index')).content
         self.assertNotEqual(res2, res3)
@@ -401,12 +406,10 @@ class FollowTests(TestCase):
 
     def test_authorized_client_enable_to_follow(self):
         """Авторизированный пользователь может подписываться."""
-        self.authorized_client.get(self.follow)
         self.assertEqual(Follow.objects.count(), self.followers_before + 1)
 
     def test_authorized_client_enable_to_unfollow(self):
         """Авторизированный пользователь может отписываться."""
-        self.authorized_client.get(self.follow)
         self.authorized_client.get(self.unfollow)
         self.assertEqual(Follow.objects.count(), self.followers_before)
 
