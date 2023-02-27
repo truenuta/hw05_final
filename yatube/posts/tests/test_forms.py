@@ -35,7 +35,7 @@ class PostCreateFormTests(TestCase):
             text='Тестовый пост',
             group=self.group,
         )
-        self.small_gif = (
+        self.new_gif = (
             b"\x47\x49\x46\x38\x39\x61\x02\x00"
             b"\x01\x00\x80\x00\x00\x00\x00\x00"
             b"\xFF\xFF\xFF\x21\xF9\x04\x00\x00"
@@ -44,7 +44,7 @@ class PostCreateFormTests(TestCase):
             b"\x0A\x00\x3B"
         )
         self.uploaded = SimpleUploadedFile(
-            name='small.gif', content=self.small_gif, content_type='image/gif'
+            name='new.gif', content=self.new_gif, content_type='image/gif'
         )
 
     def test_post_form(self):
@@ -67,7 +67,7 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(Post.objects.count(), posts_cnt + 1)
         self.assertTrue(Post.objects.filter(
             text='Текст из формы',
-            image=self.uploaded
+            image='posts/new.gif'
         ).exists())
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
