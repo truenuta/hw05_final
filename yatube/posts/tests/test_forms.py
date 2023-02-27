@@ -66,7 +66,9 @@ class PostCreateFormTests(TestCase):
         )
         self.assertEqual(Post.objects.count(), posts_cnt + 1)
         self.assertTrue(Post.objects.filter(
-            text='Текст из формы').exists())
+            text='Текст из формы',
+            image=self.uploaded
+        ).exists())
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_edit_post_form(self):
